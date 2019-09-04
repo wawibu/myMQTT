@@ -41,7 +41,19 @@ class myMQTT extends IPSModule
             $jsonExplode = explode('/', $Buffer->Topic);
 
             end($jsonExplode);
-            $this->SendDebug('Topic End', key($jsonExplode), 0);
+            $lastKey = key($jsonExplode);            
+            $this->SendDebug('Topic End', $jsonExplode[$lastKey], 0);
+
+            if ($lastKey == 2) {
+                $TopicInstance = @$this->GetIDForIdent($jsonExplode[1]);
+                if(!$TopicInstance) {
+                    $TopicInstance = IPS_CreateInstance("{485D0419-BE97-4548-AA9C-C083EB82E61E}");
+                    IPS_SetName($TopicInstance, $jsonExplode[1]);
+                    IPS_SetParent($TopicInstance, $this->InstanceID);
+                }
+                $varID = $TopicInstance->RegisterVariableString($jsonExplode[$lastKey], $jsonExplode[$lastKey]), "", 0);
+                SetValue($varID, $Buffer->Payload);
+            }
 
 
 
