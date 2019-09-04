@@ -1,13 +1,13 @@
 <?php
 
-class myMQTT
+class myMQTT extends IPSModule
 {
     public function Create()
     {
         //Never delete this line!
         parent::Create();
         $this->BufferResponse = '';
-        $this->ConnectParent('{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}');
+//        $this->ConnectParent('{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}');
         //Anzahl die in der Konfirgurationsform angezeigt wird - Hier Standard auf 1
         $this->RegisterPropertyString('Topic', '');
     }
@@ -18,9 +18,9 @@ class myMQTT
         parent::ApplyChanges();
         $this->BufferResponse = '';
         $this->ConnectParent('{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}');
-        //Setze Filter fÃ¼r ReceiveData
+        //Setze Filter fuer ReceiveData
 
-        $this->SendDebug(__FUNCTION__ . ' FullTopic', $this->ReadPropertyString('FullTopic'), 0);
+        $this->SendDebug(__FUNCTION__ . ' FullTopic', $this->ReadPropertyString('Topic'), 0);
         $topic = $this->FilterFullTopicReceiveData();
         $this->SendDebug(__FUNCTION__ . ' Filter FullTopic', $topic, 0);
 
@@ -73,6 +73,21 @@ class myMQTT
             $power = 0;
         }
         $result = $this->setPower($power, $Value);
+    }
+
+    protected function FilterFullTopicReceiveData()
+    {
+        $FullTopic = explode('/', $this->ReadPropertyString('Topic'));
+        $PrefixIndex = array_search('%prefix%', $FullTopic);
+        $TopicIndex = array_search('%topic%', $FullTopic);
+
+        $SetCommandArr = $FullTopic;
+        $SetCommandArr[$PrefixIndex] = '.*.';
+        //unset($SetCommandArr[$PrefixIndex]);
+        $SetCommandArr[$TopicIndex] = $this->ReadPropertyString('Topic');
+        $topic = implode('\/', $SetCommandArr);
+
+        return $topic;
     }
 
     
