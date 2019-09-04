@@ -43,7 +43,7 @@ class myMQTT extends IPSModule
             end($jsonExplode);
             $lastKey = key($jsonExplode);            
             $this->SendDebug('Topic End', $jsonExplode[$lastKey], 0);
-
+/*
             if ($lastKey == 2) {
                 $TopicInstance = @$this->GetIDForIdent($jsonExplode[1]);
                 if(!$TopicInstance) {
@@ -54,7 +54,7 @@ class myMQTT extends IPSModule
                 $varID = $TopicInstance->RegisterVariableString($jsonExplode[$lastKey], $jsonExplode[$lastKey]), "", 0);
                 SetValue($varID, $Buffer->Payload);
             }
-
+*/
 
 
             //IrReceived
