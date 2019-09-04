@@ -42,19 +42,41 @@ class myMQTT extends IPSModule
 
             end($jsonExplode);
             $lastKey = key($jsonExplode);            
-            $this->SendDebug('Topic End', $jsonExplode[$lastKey], 0);
-/*
+            $this->SendDebug('Topic 0', $jsonExplode[0], 0);
+            $this->SendDebug('Topic 1', $jsonExplode[1], 0);
+            $this->SendDebug('Topic 2', $jsonExplode[2], 0);
+			$this->SendDebug('Last Key', $lastKey, 0);
+			$this->SendDebug('Last Key num', is_int($lastKey), 0);
             if ($lastKey == 2) {
-                $TopicInstance = @$this->GetIDForIdent($jsonExplode[1]);
-                if(!$TopicInstance) {
-                    $TopicInstance = IPS_CreateInstance("{485D0419-BE97-4548-AA9C-C083EB82E61E}");
-                    IPS_SetName($TopicInstance, $jsonExplode[1]);
-                    IPS_SetParent($TopicInstance, $this->InstanceID);
+				$InstanceName = $jsonExplode[1];
+                $InstanceID = @IPS_GetInstanceIDByName($InstanceName, $this->InstanceID);
+				$this->SendDebug('TopicInstance',$InstanceID,0);
+                if(!$InstanceID) {
+                    $InstanceID = IPS_CreateInstance("{485D0419-BE97-4548-AA9C-C083EB82E61E}");
+                    IPS_SetName($InstanceID, $InstanceName);
+                    IPS_SetParent($InstanceID, $this->InstanceID);
                 }
-                $varID = $TopicInstance->RegisterVariableString($jsonExplode[$lastKey], $jsonExplode[$lastKey]), "", 0);
-                SetValue($varID, $Buffer->Payload);
+				$VarName = $jsonExplode[$lastKey];
+				$VarValue = $Buffer->Payload;
+				$this->SendDebug('var name', $VarName, 0);
+				$VarID = @IPS_GetVariableIDbyName($VarName,$InstanceID );
+				if (!$VarID) {
+					if (is_float($VarValue)) 		{ $this->RegisterVariableFloat($InstanceName.$VarName.'Float', $VarName, '', 0); }
+					elseif (is_numeric($VarValue)) 	{ $this->RegisterVariableInteger($InstanceName.$VarName.'Int', $VarName, '', 0); }
+					elseif (is_bool($VarValue)) 	{ $this->RegisterVariableBoolean($InstanceName.$VarName.'Bool', $VarName, '', 0); }
+					else 							{ $this->RegisterVariableString($InstanceName.$VarName.'String', $VarName, '', 0); }
+					$VarID = @IPS_GetVariableIDbyName($VarName,$this->InstanceID );
+					IPS_SetParent($VarID,$InstanceID);
+					
+				} 
+				SetValue($VarID, $VarValue);
+				
+                
+				
+                
+				
             }
-*/
+
 
 
             //IrReceived
