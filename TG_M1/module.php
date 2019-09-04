@@ -36,6 +36,14 @@ class myMQTT extends IPSModule
             // Buffer decodieren und in eine Variable schreiben
             $Buffer = $data;
             $this->SendDebug('Topic', $Buffer->Topic, 0);
+            $this->SendDebug('Payload', $Buffer->Payload, 0);
+
+            $jsonExplode = explode('/', $Buffer->Topic);
+
+            end($jsonExplode);
+            $this->SendDebug('Topic End', key($jsonExplode), 0);
+
+
 
             //IrReceived
             if (fnmatch('*IrReceived*', $Buffer->Payload)) {
