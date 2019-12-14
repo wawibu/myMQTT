@@ -7,7 +7,7 @@ class myMQTT extends IPSModule
         //Never delete this line!
         parent::Create();
         $this->BufferResponse = '';
-//        $this->ConnectParent('{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}');
+        $this->ConnectParent('{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}');
         //Anzahl die in der Konfirgurationsform angezeigt wird - Hier Standard auf 1
         $this->RegisterPropertyString('Topic', '');
     }
@@ -29,56 +29,102 @@ class myMQTT extends IPSModule
 
     public function ReceiveData($JSONString)
     {
-        $this->SendDebug('JSON', $JSONString, 0);
+//        $this->SendDebug('JSON', $JSONString, 0);
         if (!empty($this->ReadPropertyString('Topic'))) {
-            $this->SendDebug('ReceiveData JSON', $JSONString, 0);
+//            $this->SendDebug('ReceiveData JSON', $JSONString, 0);
             $data = json_decode($JSONString);
             // Buffer decodieren und in eine Variable schreiben
             $Buffer = $data;
-            $this->SendDebug('Topic', $Buffer->Topic, 0);
-            $this->SendDebug('Payload', $Buffer->Payload, 0);
-
+//            $this->SendDebug('Topic', $Buffer->Topic, 0);
+//            $this->SendDebug('Payload', $Buffer->Payload, 0);
+            $this->SendDebug('Topic / Payload', $Buffer->Topic." >>>> ".$Buffer->Payload, 0);
             $jsonExplode = explode('/', $Buffer->Topic);
 
-            end($jsonExplode);
-            $lastKey = key($jsonExplode);            
-            $this->SendDebug('Topic 0', $jsonExplode[0], 0);
-            $this->SendDebug('Topic 1', $jsonExplode[1], 0);
-            $this->SendDebug('Topic 2', $jsonExplode[2], 0);
-			$this->SendDebug('Last Key', $lastKey, 0);
-			$this->SendDebug('Last Key num', is_int($lastKey), 0);
-            if ($lastKey == 2) {
-				$InstanceName = $jsonExplode[1];
-                $InstanceID = @IPS_GetInstanceIDByName($InstanceName, $this->InstanceID);
-				$this->SendDebug('TopicInstance',$InstanceID,0);
-                if(!$InstanceID) {
-                    $InstanceID = IPS_CreateInstance("{485D0419-BE97-4548-AA9C-C083EB82E61E}");
-                    IPS_SetName($InstanceID, $InstanceName);
-                    IPS_SetParent($InstanceID, $this->InstanceID);
+            $InstanceID_p = $this->InstanceID;
+
+            $mainTopic = $this->ReadPropertyString('Topic');
+            $TopicCount = count($jsonExplode) - 1;
+            
+            foreach($jsonExplode as $keyNumber=>$InstanceName) {
+//                $this->SendDebug("schleife","keyNumber: ".$keyNumber." >> InstanceName: ".$InstanceName." >> InstanceID_p: ".$InstanceID_p,0);
+                if($keyNumber == $TopicCount) { 
+                    $VarName = $InstanceName;
+                    continue; 
                 }
-				$VarName = $jsonExplode[$lastKey];
+            
+                if ($InstanceName != $mainTopic) { 
+                    $InstanceID = @IPS_GetInstanceIDByName($InstanceName, $InstanceID_p);
+                    if (!$InstanceID) {
+                        $InstanceID = IPS_CreateInstance("{485D0419-BE97-4548-AA9C-C083EB82E61E}");
+                        IPS_SetName($InstanceID, $InstanceName);
+                        IPS_SetParent($InstanceID, $InstanceID_p);
+                    }
+                    $InstanceID_p = $InstanceID;
+                }
+            }
+			
+			$jsonDecodePayload = json_decode($Buffer->Payload,true);
+			$this->SendDebug('is Array', is_array($jsonDecodePayload), 0);
+				
+			if(is_array($jsonDecodePayload)) { 
+				$InstanceName = $VarName;
+				$InstanceID = @IPS_GetInstanceIDByName($InstanceName, $InstanceID_p);
+				if (!$InstanceID) {
+					$InstanceID = IPS_CreateInstance("{485D0419-BE97-4548-AA9C-C083EB82E61E}");
+					IPS_SetName($InstanceID, $InstanceName);
+					IPS_SetParent($InstanceID, $InstanceID_p);
+				}
+				$InstanceID_p = $InstanceID;			
+				foreach($jsonDecodePayload as $PayloadKey => $PayloadValue) {
+					$this->SendDebug($PayloadKey, $PayloadValue, 0);
+					$VarName = $PayloadKey;
+					$VarValue = $PayloadValue;
+					$VarID = @IPS_GetVariableIDbyName($VarName,$InstanceID_p);
+					if (!$VarID) {
+						if(strtoupper($VarValue) == 'TRUE' or strtoupper($VarValue) == 'FALSE') {
+							$this->RegisterVariableBoolean($InstanceName.$VarName.'Bool', $VarName, '', 0);
+						}
+						elseif (is_numeric($VarValue)) 	{ 
+							if (!strpos($VarValue,".")) {
+								$this->RegisterVariableInteger($InstanceName.$VarName.'Int', $VarName, '', 0); 
+							} else {
+								$this->RegisterVariableFloat($InstanceName.$VarName.'Float', $VarName, '', 0); 
+							}
+						}
+						else { 
+							$this->RegisterVariableString($InstanceName.$VarName.'String', $VarName, '', 0); 
+						}
+						$InstanceID = $this->InstanceID;
+						$VarID = @IPS_GetVariableIDbyName($VarName, $InstanceID );
+						IPS_SetParent($VarID, $InstanceID_p);
+					} 
+					SetValue($VarID, $VarValue);					
+				}
+			} else
+			{
 				$VarValue = $Buffer->Payload;
-				$this->SendDebug('var name', $VarName, 0);
-				$VarID = @IPS_GetVariableIDbyName($VarName,$InstanceID );
+				$VarID = @IPS_GetVariableIDbyName($VarName,$InstanceID_p);
 				if (!$VarID) {
-					if (is_float($VarValue)) 		{ $this->RegisterVariableFloat($InstanceName.$VarName.'Float', $VarName, '', 0); }
-					elseif (is_numeric($VarValue)) 	{ $this->RegisterVariableInteger($InstanceName.$VarName.'Int', $VarName, '', 0); }
-					elseif (is_bool($VarValue)) 	{ $this->RegisterVariableBoolean($InstanceName.$VarName.'Bool', $VarName, '', 0); }
-					else 							{ $this->RegisterVariableString($InstanceName.$VarName.'String', $VarName, '', 0); }
-					$VarID = @IPS_GetVariableIDbyName($VarName,$this->InstanceID );
-					IPS_SetParent($VarID,$InstanceID);
-					
+					if(strtoupper($VarValue) == 'TRUE' or strtoupper($VarValue) == 'FALSE') {
+						$this->RegisterVariableBoolean($InstanceName.$VarName.'Bool', $VarName, '', 0);
+					}
+					elseif (is_numeric($VarValue)) 	{ 
+						if (!strpos($VarValue,".")) {
+							$this->RegisterVariableInteger($InstanceName.$VarName.'Int', $VarName, '', 0); 
+						} else {
+							$this->RegisterVariableFloat($InstanceName.$VarName.'Float', $VarName, '', 0); 
+						}
+					}
+					else { 
+						$this->RegisterVariableString($InstanceName.$VarName.'String', $VarName, '', 0); 
+					}
+					$InstanceID = $this->InstanceID;
+					$VarID = @IPS_GetVariableIDbyName($VarName, $InstanceID );
+					IPS_SetParent($VarID, $InstanceID_p);
 				} 
 				SetValue($VarID, $VarValue);
-				
-                
-				
-                
-				
-            }
-
-
-
+			}
+/*
             //IrReceived
             if (fnmatch('*IrReceived*', $Buffer->Payload)) {
                 $myBuffer = json_decode($Buffer->Payload);
@@ -96,7 +142,7 @@ class myMQTT extends IPSModule
                     SetValue($this->GetIDForIdent('Tasmota_IRData'), $myBuffer->IrReceived->Data);
                 }
             }
-
+*/
         }
     }
 
