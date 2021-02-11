@@ -2,8 +2,7 @@
 
 class myMQTT extends IPSModule
 {
-    public function Create()
-    {
+    public function Create() {
         //Never delete this line!
         parent::Create();
         $this->BufferResponse = '';
@@ -12,8 +11,7 @@ class myMQTT extends IPSModule
         $this->RegisterPropertyString('Topic', '');
     }
 
-    public function ApplyChanges()
-    {
+    public function ApplyChanges() {
         //Never delete this line!
         parent::ApplyChanges();
         $this->BufferResponse = '';
@@ -27,8 +25,45 @@ class myMQTT extends IPSModule
         $this->SetReceiveDataFilter('.*' . $topic . '.*');
     }
 
-    public function ReceiveData($JSONString)
-    {
+	public function DataIsArray ($VarName, $InstanceID_p,$jsonDecodePayload) {
+		$InstanceName = $VarName;
+		$InstanceID = @IPS_GetInstanceIDByName($InstanceName, $InstanceID_p);
+		if (!$InstanceID) {
+			$InstanceID = IPS_CreateInstance("{485D0419-BE97-4548-AA9C-C083EB82E61E}");
+			IPS_SetName($InstanceID, $InstanceName);
+			IPS_SetParent($InstanceID, $InstanceID_p);
+		}
+		$InstanceID_p = $InstanceID;			
+		foreach($jsonDecodePayload as $PayloadKey => $PayloadValue) {
+			$VarName = $PayloadKey;
+			$VarValue = $PayloadValue;
+			$VarID = @IPS_GetVariableIDbyName($VarName,$InstanceID_p);
+			if (is_array($VarValue)) {
+				$this->DataIsArray($VarName, $InstanceID_p, $VarValue);
+			} else {
+				if (!$VarID) {
+					if(strtoupper($VarValue) == 'TRUE' or strtoupper($VarValue) == 'FALSE') {
+						$this->RegisterVariableBoolean($InstanceName.$VarName.'Bool', $VarName, '', 0);
+					}
+					elseif (is_numeric($VarValue)) 	{ 
+						if (!strpos($VarValue,".")) {
+							$this->RegisterVariableInteger($InstanceName.$VarName.'Int', $VarName, '', 0); 
+						} else {
+							$this->RegisterVariableFloat($InstanceName.$VarName.'Float', $VarName, '', 0); 
+						}
+					} else { 
+						$this->RegisterVariableString($InstanceName.$VarName.'String', $VarName, '', 0); 
+					}
+					$InstanceID = $this->InstanceID;
+					$VarID = @IPS_GetVariableIDbyName($VarName, $InstanceID );
+					IPS_SetParent($VarID, $InstanceID_p);
+				} 
+				SetValue($VarID, $VarValue);
+			}
+		}
+	}
+	
+    public function ReceiveData($JSONString) {
 //        $this->SendDebug('JSON', $JSONString, 0);
         if (!empty($this->ReadPropertyString('Topic'))) {
 //            $this->SendDebug('ReceiveData JSON', $JSONString, 0);
@@ -64,44 +99,11 @@ class myMQTT extends IPSModule
             }
 			
 			$jsonDecodePayload = json_decode($Buffer->Payload,true);
-			$this->SendDebug('is Array', is_array($jsonDecodePayload), 0);
+//			$this->SendDebug('is Array', is_array($jsonDecodePayload), 0);
 				
 			if(is_array($jsonDecodePayload)) { 
-				$InstanceName = $VarName;
-				$InstanceID = @IPS_GetInstanceIDByName($InstanceName, $InstanceID_p);
-				if (!$InstanceID) {
-					$InstanceID = IPS_CreateInstance("{485D0419-BE97-4548-AA9C-C083EB82E61E}");
-					IPS_SetName($InstanceID, $InstanceName);
-					IPS_SetParent($InstanceID, $InstanceID_p);
-				}
-				$InstanceID_p = $InstanceID;			
-				foreach($jsonDecodePayload as $PayloadKey => $PayloadValue) {
-					$this->SendDebug($PayloadKey, $PayloadValue, 0);
-					$VarName = $PayloadKey;
-					$VarValue = $PayloadValue;
-					$VarID = @IPS_GetVariableIDbyName($VarName,$InstanceID_p);
-					if (!$VarID) {
-						if(strtoupper($VarValue) == 'TRUE' or strtoupper($VarValue) == 'FALSE') {
-							$this->RegisterVariableBoolean($InstanceName.$VarName.'Bool', $VarName, '', 0);
-						}
-						elseif (is_numeric($VarValue)) 	{ 
-							if (!strpos($VarValue,".")) {
-								$this->RegisterVariableInteger($InstanceName.$VarName.'Int', $VarName, '', 0); 
-							} else {
-								$this->RegisterVariableFloat($InstanceName.$VarName.'Float', $VarName, '', 0); 
-							}
-						}
-						else { 
-							$this->RegisterVariableString($InstanceName.$VarName.'String', $VarName, '', 0); 
-						}
-						$InstanceID = $this->InstanceID;
-						$VarID = @IPS_GetVariableIDbyName($VarName, $InstanceID );
-						IPS_SetParent($VarID, $InstanceID_p);
-					} 
-					SetValue($VarID, $VarValue);					
-				}
-			} else
-			{
+				$this->DataIsArray($VarName, $InstanceID_p, $jsonDecodePayload);
+			} else {
 				$VarValue = $Buffer->Payload;
 				$VarID = @IPS_GetVariableIDbyName($VarName,$InstanceID_p);
 				if (!$VarID) {
@@ -124,30 +126,11 @@ class myMQTT extends IPSModule
 				} 
 				SetValue($VarID, $VarValue);
 			}
-/*
-            //IrReceived
-            if (fnmatch('*IrReceived*', $Buffer->Payload)) {
-                $myBuffer = json_decode($Buffer->Payload);
-                $this->SendDebug('IrReceived', $Buffer->Payload, 0);
-                if (property_exists($myBuffer->IrReceived, 'Protocol')) {
-                    $this->RegisterVariableString('Tasmota_IRProtocol', 'IR Protocol', '', 0);
-                    SetValue($this->GetIDForIdent('Tasmota_IRProtocol'), $myBuffer->IrReceived->Protocol);
-                }
-                if (property_exists($myBuffer->IrReceived, 'Bits')) {
-                    $this->RegisterVariableString('Tasmota_IRBits', 'IR Bits', '', 0);
-                    SetValue($this->GetIDForIdent('Tasmota_IRBits'), $myBuffer->IrReceived->Bits);
-                }
-                if (property_exists($myBuffer->IrReceived, 'Data')) {
-                    $this->RegisterVariableString('Tasmota_IRData', 'IR Data', '', 0);
-                    SetValue($this->GetIDForIdent('Tasmota_IRData'), $myBuffer->IrReceived->Data);
-                }
-            }
-*/
+
         }
     }
 
-    public function RequestAction($Ident, $Value)
-    {
+    public function RequestAction($Ident, $Value) {
         $this->SendDebug(__FUNCTION__ . ' Ident', $Ident, 0);
         $this->SendDebug(__FUNCTION__ . ' Value', $Value, 0);
         if ($Ident == 'Tasmota_FanSpeed') {
@@ -163,8 +146,7 @@ class myMQTT extends IPSModule
         $result = $this->setPower($power, $Value);
     }
 
-    protected function FilterFullTopicReceiveData()
-    {
+    protected function FilterFullTopicReceiveData() {
         $FullTopic = explode('/', $this->ReadPropertyString('Topic'));
         $PrefixIndex = array_search('%prefix%', $FullTopic);
         $TopicIndex = array_search('%topic%', $FullTopic);
